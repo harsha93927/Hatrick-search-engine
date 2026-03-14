@@ -1,0 +1,15 @@
+packages:
+  "framer-motion": "For sleek intro screen and smooth glassmorphism animations"
+  "clsx": "For conditional tailwind class joining"
+  "tailwind-merge": "For merging tailwind classes safely"
+  "lucide-react": "For beautiful consistent icons"
+
+images:
+  - path: "artifacts/hatrick-search/public/images/space-bg.png"
+    description: "Dark deep space background with subtle glowing purple and blue nebulas, highly highly dark and minimal"
+    aspect_ratio: "16:9"
+
+notes:
+  - Using wouter for simple routing and search params.
+  - Relying on @workspace/api-client-react for TanStack query hooks.
+  - App starts with an animated intro once per session.

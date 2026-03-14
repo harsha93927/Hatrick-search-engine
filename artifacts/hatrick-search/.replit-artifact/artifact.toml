@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Hatrick Search Engine"
+version = "1.0.0"
+id = "artifacts/hatrick-search"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 22006
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/hatrick-search run dev"
+
+[services.env]
+PORT = "22006"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/hatrick-search", "run", "build"]
+publicDir = "artifacts/hatrick-search/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
