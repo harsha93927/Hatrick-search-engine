@@ -1,0 +1,8 @@
+[build]
+  command = "pnpm --filter @workspace/hatrick-search build"
+  publish = "artifacts/hatrick-search/dist/public"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
