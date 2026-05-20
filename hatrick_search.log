@@ -1,0 +1,13 @@
+
+> @workspace/hatrick-search@0.0.0 dev /app/artifacts/hatrick-search
+> vite --config vite.config.ts --host 0.0.0.0
+
+
+  VITE v7.3.1  ready in 565 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://192.168.0.2:3000/
+10:04:26 AM [vite] (client) hmr update /src/pages/Home.tsx, /src/index.css
+[RUNTIME_ERROR]{"type":"runtime-error","timestamp":1779271640664,"name":"Error","message":"Cannot read properties of undefined (reading 'length')","stack":"    at Home /app/artifacts/hatrick-search/src/pages/Home.tsx:312:42\n\n\n\n\n\n\n\n\n","loc":{"line":312,"column":42,"file":"/app/artifacts/hatrick-search/src/pages/Home.tsx"},"frame":"310|                    </div>\n311|                    \n312|                    {searchResults.results.length === 0 ? (\n   |                                           ^\n313|                      <div className=\"text-center py-32 bg-white/5 rounded-[3rem] border border-white/5 border-dashed\">\n314|                        <p className=\"text-muted-foreground font-medium text-lg\">No cards found in current data streams.</p>"}
+10:08:41 AM [vite] (client) hmr update /src/pages/Home.tsx, /src/index.css
+10:21:36 AM [vite] (client) hmr update /src/pages/Home.tsx, /src/index.css

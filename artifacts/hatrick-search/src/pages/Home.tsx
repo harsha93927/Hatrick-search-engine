@@ -1,11 +1,15 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, Hexagon, Loader2, Clock, Globe, ArrowRight, BookOpen } from "lucide-react";
+import { Search, Sparkles, Hexagon, Loader2, Clock, Globe, ArrowRight, BookOpen, Settings as SettingsIcon } from "lucide-react";
 import { useSearch, useGetSavedItems } from "@workspace/api-client-react";
 import { AiAnswerBox } from "@/components/AiAnswerBox";
 import { ResultCard } from "@/components/ResultCard";
 import { SavedItemsPanel } from "@/components/SavedItemsPanel";
+import { Settings } from "@/components/Settings";
+import { VoiceVisualizer } from "@/components/VoiceVisualizer";
+import { useVoice } from "@/hooks/useVoice";
+import { Mic, MicOff } from "lucide-react";
 
 export function Home() {
   const [location, setLocation] = useLocation();
@@ -14,16 +18,62 @@ export function Home() {
   
   const [query, setQuery] = useState(initialQuery);
   const [isSavedPanelOpen, setIsSavedPanelOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const { isListening, startListening, stopListening, stream } = useVoice((text) => {
+    setQuery(text);
+    if (text.trim()) {
+      setLocation(`/?q=${encodeURIComponent(text.trim())}`);
+      stopListening();
+    }
+  });
 
   // Sync state when URL changes
   useEffect(() => {
     setQuery(initialQuery);
   }, [initialQuery]);
 
+  const geminiKey = localStorage.getItem("jarvis_gemini_api_key") || "";
+  const geminiModel = localStorage.getItem("jarvis_gemini_model") || "gemini-2.0-flash";
+
   const { data: searchResults, isLoading, isError } = useSearch(
     { q: initialQuery },
-    { query: { enabled: !!initialQuery, retry: false } }
+    {
+      query: {
+        enabled: !!initialQuery,
+        retry: false,
+        queryKey: ['search', initialQuery, geminiModel]
+      },
+      request: {
+        headers: {
+          "x-gemini-key": geminiKey,
+          "x-gemini-model": geminiModel,
+        }
+      }
+    }
   );
+
+  useEffect(() => {
+    if (searchResults?.aiAnswer) {
+      try {
+        const intent = JSON.parse(searchResults.aiAnswer);
+        if (intent && intent.intent) {
+          fetch("http://localhost:8000/execute", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(intent),
+          })
+          .then(res => res.json())
+          .then(data => {
+            console.log("OS Execution Result:", data);
+          })
+          .catch(err => console.error("OS Execution Error:", err));
+        }
+      } catch (e) {
+        // Not a JSON intent, treat as normal message
+      }
+    }
+  }, [searchResults]);
 
   const { data: savedItems } = useGetSavedItems();
 
@@ -76,21 +126,39 @@ export function Home() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Dive deeper..."
-                  className="w-full bg-white/5 border border-white/10 text-foreground rounded-2xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white/10 transition-all shadow-inner text-lg font-medium"
+                  className="w-full bg-white/5 border border-white/10 text-foreground rounded-2xl pl-12 pr-14 py-3 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:bg-white/10 transition-all shadow-inner text-lg font-medium"
                 />
+                <button
+                  type="button"
+                  onClick={isListening ? stopListening : startListening}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-white/10 text-muted-foreground'}`}
+                >
+                  {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </button>
               </form>
 
-              <button
-                onClick={() => setIsSavedPanelOpen(true)}
-                className="relative p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-muted-foreground hover:text-foreground group shadow-sm hover:border-primary/30"
-              >
-                <Clock className="w-6 h-6 group-hover:rotate-6 transition-transform" />
-                {savedItems && savedItems.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-[10px] font-black flex items-center justify-center rounded-lg shadow-lg animate-bounce">
-                    {savedItems.length}
-                  </span>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-muted-foreground hover:text-foreground group shadow-sm hover:border-primary/30"
+                  title="Settings"
+                >
+                  <SettingsIcon className="w-6 h-6 group-hover:rotate-90 transition-transform duration-500" />
+                </button>
+
+                <button
+                  onClick={() => setIsSavedPanelOpen(true)}
+                  className="relative p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all text-muted-foreground hover:text-foreground group shadow-sm hover:border-primary/30"
+                  title="Saved Items"
+                >
+                  <Clock className="w-6 h-6 group-hover:rotate-6 transition-transform" />
+                  {savedItems && savedItems.length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-[10px] font-black flex items-center justify-center rounded-lg shadow-lg animate-bounce">
+                      {savedItems.length}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           </motion.header>
         )}
@@ -152,19 +220,50 @@ export function Home() {
                   className="w-full bg-transparent text-xl md:text-2xl text-foreground placeholder:text-muted-foreground/40 focus:outline-none py-4 font-medium"
                   autoFocus
                 />
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  disabled={!query.trim()}
-                  className="bg-gradient-to-r from-primary to-secondary text-white px-10 py-4 rounded-2xl font-black shadow-2xl hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest text-xs sm:text-sm flex items-center gap-2"
-                >
-                  Search <ArrowRight className="w-5 h-5" />
-                </motion.button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={isListening ? stopListening : startListening}
+                    className={`p-4 rounded-2xl transition-all ${isListening ? 'bg-red-500/20 text-red-500 shadow-lg shadow-red-500/20' : 'bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+                  >
+                    {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                  </button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    disabled={!query.trim()}
+                    className="bg-gradient-to-r from-primary to-secondary text-white px-10 py-4 rounded-2xl font-black shadow-2xl hover:shadow-primary/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest text-xs sm:text-sm flex items-center gap-2"
+                  >
+                    Search <ArrowRight className="w-5 h-5" />
+                  </motion.button>
+                </div>
               </div>
             </form>
 
+            <AnimatePresence>
+              {isListening && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="flex flex-col items-center"
+                >
+                  <VoiceVisualizer stream={stream} isListening={isListening} />
+                  <p className="text-primary font-black uppercase tracking-[0.3em] text-[10px] animate-pulse mt-2">JARVIS is listening...</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex flex-wrap justify-center gap-4">
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center gap-3 text-sm text-foreground hover:text-white transition-all bg-white/5 hover:bg-white/10 px-6 py-3 rounded-2xl border border-white/5 hover:border-primary/40 font-bold uppercase tracking-widest shadow-lg"
+              >
+                <SettingsIcon className="w-4 h-4 text-primary" />
+                System Configuration
+              </button>
+
               <button
                 onClick={() => setIsSavedPanelOpen(true)}
                 className="flex items-center gap-3 text-sm text-foreground hover:text-white transition-all bg-white/5 hover:bg-white/10 px-6 py-3 rounded-2xl border border-white/5 hover:border-primary/40 font-bold uppercase tracking-widest shadow-lg"
@@ -232,14 +331,14 @@ export function Home() {
                     </p>
                   </div>
                   
-                  {searchResults.results.length === 0 ? (
+                  {searchResults.results && searchResults.results.length === 0 ? (
                     <div className="text-center py-32 bg-white/5 rounded-[3rem] border border-white/5 border-dashed">
                       <p className="text-muted-foreground font-medium text-lg">No cards found in current data streams.</p>
                       <p className="text-sm text-muted-foreground/60 mt-1">Try broadening your search query.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                      {searchResults.results.map((result, index) => (
+                      {searchResults.results?.map((result, index) => (
                         <ResultCard key={`${result.url}-${index}`} result={result} index={index} />
                       ))}
                     </div>
@@ -254,6 +353,11 @@ export function Home() {
       <SavedItemsPanel 
         isOpen={isSavedPanelOpen} 
         onClose={() => setIsSavedPanelOpen(false)} 
+      />
+
+      <Settings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
       
       {/* Decorative footer code */}

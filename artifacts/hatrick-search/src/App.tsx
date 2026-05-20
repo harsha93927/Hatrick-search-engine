@@ -33,6 +33,7 @@ function App() {
       }, 2800); // 2.8s total intro time
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [showIntro]);
 
   return (

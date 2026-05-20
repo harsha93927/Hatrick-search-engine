@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const router: IRouter = Router();
 
@@ -127,6 +128,53 @@ function buildEnhancedFallback(query: string): NewsArticle[] {
   });
 }
 
+async function generateGeminiAnswer(query: string, results: NewsArticle[], apiKey: string, modelName: string): Promise<string> {
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: modelName || "gemini-2.0-flash" });
+
+    const context = results
+      .slice(0, 5)
+      .map((r, i) => `[${i + 1}] ${r.title}: ${r.snippet}`)
+      .join("\n");
+
+    const prompt = `You are JARVIS, a sophisticated search engine intelligence.
+    Provide a premium, insightful, and comprehensive summary of the search results for the user's query.
+    Be authoritative yet accessible. Use markdown for better presentation.
+
+    CRITICAL: If the user is asking to perform an OS operation, respond ONLY with a structured JSON object.
+    Supported Intents:
+    - {"intent": "open_app", "target": "App Name"}
+    - {"intent": "open_folder", "path": "Folder Path"}
+    - {"intent": "create_file", "path": "path/to/file.txt", "content": "file content"}
+    - {"intent": "delete_file", "path": "path/to/file"}
+    - {"intent": "rename_file", "path": "old_path", "new_name": "new_name"}
+    - {"intent": "list_dir", "path": "folder_path"}
+    - {"intent": "search_file", "query": "filename"}
+    - {"intent": "screenshot"}
+    - {"intent": "get_system_info"}
+    - {"intent": "get_processes"}
+    - {"intent": "kill_process", "target": "PID or Name"}
+    - {"intent": "set_brightness", "params": {"level": 50}}
+
+    If it's not an OS operation, provide a natural language response as JARVIS.
+
+    Query: ${query}
+
+    Key Findings from Web Search:
+    ${context}
+
+    Synthesize an intelligent response:`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (err) {
+    console.error("Gemini AI Generation Error:", err);
+    throw err;
+  }
+}
+
 async function generateAiAnswer(query: string, results: NewsArticle[]): Promise<string> {
   try {
     const context = results
@@ -135,13 +183,13 @@ async function generateAiAnswer(query: string, results: NewsArticle[]): Promise<
       .join("\n");
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5-mini", // Corrected to a real model name or fallback to 4o
+      model: "gpt-4o-mini",
       max_completion_tokens: 400,
       messages: [
         {
           role: "system",
           content:
-            "You are Hatrick AI, a sophisticated search engine intelligence. Provide a premium, insightful, and comprehensive summary of the search results for the user's query. Be authoritative yet accessible. Use markdown for better presentation.",
+            "You are JARVIS, a sophisticated search engine intelligence. Provide a premium, insightful, and comprehensive summary of the search results for the user's query. Be authoritative yet accessible. Use markdown for better presentation. CRITICAL: If the user is asking to perform an OS operation (open app, open folder, search files, take screenshot), respond ONLY with a structured JSON object like: {\"intent\": \"open_app\", \"target\": \"App Name\"}.",
         },
         {
           role: "user",
@@ -159,6 +207,8 @@ async function generateAiAnswer(query: string, results: NewsArticle[]): Promise<
 
 router.get("/search", async (req, res): Promise<void> => {
   const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const geminiKey = req.headers["x-gemini-key"] as string;
+  const geminiModel = req.headers["x-gemini-model"] as string;
 
   if (!query) {
     res.status(400).json({ error: "Search query is required" });
@@ -172,7 +222,17 @@ router.get("/search", async (req, res): Promise<void> => {
   const combined = [...newsResults, ...gnewsResults];
   const finalResults = combined.length > 0 ? combined : buildEnhancedFallback(query);
 
-  const aiAnswer = await generateAiAnswer(query, finalResults);
+  let aiAnswer: string;
+  if (geminiKey) {
+    try {
+      aiAnswer = await generateGeminiAnswer(query, finalResults, geminiKey, geminiModel);
+    } catch (err) {
+      console.warn("Falling back to default AI due to Gemini error");
+      aiAnswer = await generateAiAnswer(query, finalResults);
+    }
+  } else {
+    aiAnswer = await generateAiAnswer(query, finalResults);
+  }
 
   res.json({
     query,

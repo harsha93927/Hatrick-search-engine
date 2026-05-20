@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Bookmark, ExternalLink, Calendar, Check, Clock, Globe } from "lucide-react";
+import { Bookmark, ExternalLink, Calendar, Check, Clock, Globe, Search } from "lucide-react";
 import { useState } from "react";
 import { useSaveItem, getGetSavedItemsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
