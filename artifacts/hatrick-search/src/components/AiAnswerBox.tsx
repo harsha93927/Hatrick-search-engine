@@ -1,11 +1,15 @@
 import { motion } from "framer-motion";
-import { BrainCircuit } from "lucide-react";
+import { BrainCircuit, Volume2, VolumeX } from "lucide-react";
+import { useTTS } from "@/hooks/useTTS";
+import { Button } from "./ui/button";
 
 interface AiAnswerBoxProps {
   answer: string;
 }
 
 export function AiAnswerBox({ answer }: AiAnswerBoxProps) {
+  const { speak, stop, isSpeaking } = useTTS();
+
   if (!answer) return null;
 
   return (
@@ -26,9 +30,19 @@ export function AiAnswerBox({ answer }: AiAnswerBoxProps) {
             </div>
             
             <div className="flex-1">
-              <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary uppercase tracking-wider mb-2">
-                AI Synthesis
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary uppercase tracking-wider">
+                  JARVIS Intelligence
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => isSpeaking ? stop() : speak(answer)}
+                  className="h-8 w-8 text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg"
+                >
+                  {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </Button>
+              </div>
               <div className="prose prose-invert prose-p:leading-relaxed max-w-none text-foreground/90">
                 <p>{answer}</p>
               </div>
