@@ -1,6 +1,7 @@
 [build]
   command = "pnpm --filter @workspace/hatrick-search build"
   publish = "artifacts/hatrick-search/dist/public"
+  edge_functions = "netlify/edge-functions"
 
 [[redirects]]
   from = "/*"
